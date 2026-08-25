@@ -122,6 +122,10 @@ JSON.parse = function () {
       processShelves(r.contents.sectionListRenderer.contents);
     }
 
+    if (r?.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents) {
+    processShelves(r.contents.twoColumnSearchResultsRenderer.primaryContents.sectionListRenderer.contents);
+    }
+
     if (r?.continuationContents?.sectionListContinuation?.contents) {
       processShelves(r.continuationContents.sectionListContinuation.contents);
     }
@@ -413,13 +417,12 @@ function addLongPress(items) {
     if (!item.tileRenderer) continue;
     if (item.tileRenderer.style !== 'TILE_STYLE_YTLR_DEFAULT') continue;
     if (item.tileRenderer.onLongPressCommand?.showMenuCommand?.menu?.menuRenderer?.items) {
-      const copiedItem = JSON.parse(JSON.stringify(item));
-      item.tileRenderer.onLongPressCommand.showMenuCommand.menu.menuRenderer.items.push(MenuServiceItemRenderer('Add to Queue', {
+      item.tileRenderer.onLongPressCommand.showMenuCommand.menu.menuRenderer.items.push(MenuServiceItemRenderer('Go to Channel', {
         clickTrackingParams: null,
         playlistEditEndpoint: {
           customAction: {
-            action: 'ADD_TO_QUEUE',
-            parameters: copiedItem
+            action: 'GO_TO_CHANNEL',
+            parameters: { videoId: item.tileRenderer.contentId }
           }
         }
       }));
@@ -430,14 +433,15 @@ function addLongPress(items) {
     if (!item.tileRenderer?.header?.tileHeaderRenderer?.thumbnail?.thumbnails) continue;
     if (!item.tileRenderer.onSelectCommand?.watchEndpoint) continue;
     const copiedItem = JSON.parse(JSON.stringify(item));
-    const subtitleNode = copiedItem.tileRenderer.metadata.tileMetadataRenderer.lines?.[0]?.lineRenderer?.items?.[0]?.lineItemRenderer?.text;
+    const subtitleNode = copiedItem.tileRenderer.metadata.tileMetadataRenderer.lines?.[0]?.lineRenderer?.items?.[0]?.lineItemRenderer?.text 
+                  || copiedItem.tileRenderer.metadata.tileMetadataRenderer.subtitle;
     if (!subtitleNode) continue;
-    const subtitle = subtitleNode;
+    const subtitle = subtitleNode.runs ? subtitleNode.runs[0].text : subtitleNode.simpleText;
     const data = longPressData({
       videoId: copiedItem.tileRenderer.contentId,
       thumbnails: copiedItem.tileRenderer.header.tileHeaderRenderer.thumbnail.thumbnails,
       title: copiedItem.tileRenderer.metadata.tileMetadataRenderer.title.simpleText,
-      subtitle: subtitle.runs ? subtitle.runs[0].text : subtitle.simpleText,
+      subtitle: subtitle,
       watchEndpointData: copiedItem.tileRenderer.onSelectCommand.watchEndpoint,
       item: copiedItem
     });
