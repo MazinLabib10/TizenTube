@@ -188,7 +188,7 @@ function timelyAction(text, icon, command, triggerTimeMs, timeoutMs) {
 }
 
 function longPressData(data) {
-    const isWatchLaterItem = data.watchEndpointData.playlistId === 'WL';
+    const isWatchLaterItem = data.watchEndpointData && data.watchEndpointData.playlistId === 'WL';
     const watchLaterAction = isWatchLaterItem ? {
         removedVideoId: data.videoId,
         action: 'ACTION_REMOVE_VIDEO_BY_VIDEO_ID'
@@ -236,12 +236,12 @@ function longPressData(data) {
                                 videoId: data.videoId
                             }
                         }),
-                        MenuServiceItemRenderer('Add to Queue', {
+                        MenuServiceItemRenderer('Go to Channel', {
                             clickTrackingParams: null,
                             playlistEditEndpoint: {
                                 customAction: {
-                                    action: 'ADD_TO_QUEUE',
-                                    parameters: data.item
+                                    action: 'GO_TO_CHANNEL',
+                                    parameters: { videoId: data.videoId }
                                 }
                             }
                         }),
