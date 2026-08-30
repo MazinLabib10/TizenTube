@@ -426,7 +426,15 @@ function addLongPress(items) {
           }
         }
       }));
-      item.tileRenderer.onLongPressCommand.showMenuCommand.menu.menuRenderer.items.push(MenuServiceItemRenderer('DEBUG: NATIVE PATH', {}));
+      item.tileRenderer.onLongPressCommand.showMenuCommand.menu.menuRenderer.items.push(MenuServiceItemRenderer('DEBUG: NATIVE PATH', {
+        clickTrackingParams: null,
+        playlistEditEndpoint: {
+          customAction: {
+            action: 'GO_TO_CHANNEL',
+            parameters: { videoId: item.tileRenderer.contentId }
+          }
+        }
+      }));
       continue;
     }
     if (!configRead('enableLongPress')) continue;
@@ -447,7 +455,15 @@ function addLongPress(items) {
       item: copiedItem
     });
     item.tileRenderer.onLongPressCommand = data;
-    item.tileRenderer.onLongPressCommand.showMenuCommand.menu.menuRenderer.items.push(MenuServiceItemRenderer('DEBUG: FALLBACK PATH', {}));
+    item.tileRenderer.onLongPressCommand.showMenuCommand.menu.menuRenderer.items.push(MenuServiceItemRenderer('DEBUG: FALLBACK PATH', {
+      clickTrackingParams: null,
+      playlistEditEndpoint: {
+        customAction: {
+          action: 'GO_TO_CHANNEL',
+          parameters: { videoId: item.tileRenderer.contentId }
+        }
+      }
+    }));
   }
 }
 
