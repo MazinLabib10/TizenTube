@@ -426,6 +426,7 @@ function addLongPress(items) {
           }
         }
       }));
+      item.tileRenderer.onLongPressCommand.showMenuCommand.menu.menuRenderer.items.push(MenuServiceItemRenderer('DEBUG: NATIVE PATH', {}));
       continue;
     }
     if (!configRead('enableLongPress')) continue;
@@ -446,6 +447,7 @@ function addLongPress(items) {
       item: copiedItem
     });
     item.tileRenderer.onLongPressCommand = data;
+    item.tileRenderer.onLongPressCommand.showMenuCommand.menu.menuRenderer.items.push(MenuServiceItemRenderer('DEBUG: FALLBACK PATH', {}));
   }
 }
 
