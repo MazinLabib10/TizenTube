@@ -18,6 +18,18 @@ const origParse = JSON.parse;
 JSON.parse = function () {
   const r = origParse.apply(this, arguments);
   try {
+    // DEBUG .................................
+    if (r && typeof r === 'object' && r.contents) {
+      const shapeKey = Object.keys(r.contents).join(',');
+      if (!window.__ttSeenShapes) window.__ttSeenShapes = new Set();
+      if (!window.__ttSeenShapes.has(shapeKey)) {
+        window.__ttSeenShapes.add(shapeKey);
+        showToast('TT Shape #' + window.__ttSeenShapes.size, shapeKey.slice(0, 180));
+      }
+    }
+  } catch (e) {}
+  // DEBUG .................................
+  try {
     const adBlockEnabled = configRead('enableAdBlock');
     const signinReminderEnabled = configRead('enableSigninReminder');
 
@@ -437,16 +449,11 @@ function hqify(items) {
 
 function addLongPress(items) {
   // DEBUG .................................
-    if (!window.__ttToastedMenu) {
-    for (const item of items) {
-      const existing = item.tileRenderer?.onLongPressCommand?.showMenuCommand?.menu?.menuRenderer?.items;
-      if (existing && existing.length) {
-        window.__ttToastedMenu = true;
-        const labels = existing.map(it => (it.menuServiceItemRenderer || it.menuNavigationItemRenderer)?.text?.runs?.[0]?.text || '?').join(' | ');
-        showToast('TT Menu Debug', `${existing.length} items: ${labels}`);
-        break;
-      }
-    }
+  if (!window.__ttALPCount) window.__ttALPCount = 0;
+  window.__ttALPCount++;
+  if (window.__ttALPCount <= 6 && items && items.length) {
+    const keys = Object.keys(items[0]).join(', ');
+    showToast('TT ALP #' + window.__ttALPCount, `n=${items.length} keys=${keys}`);
   }
   // DEBUG .................................
   for (const item of items) {
