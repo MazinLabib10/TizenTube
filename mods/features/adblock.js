@@ -1,7 +1,7 @@
 import { configRead } from '../config.js';
 import Chapters from '../ui/chapters.js';
 import resolveCommand from '../resolveCommand.js';
-import { timelyAction, longPressData, MenuServiceItemRenderer, ShelfRenderer, TileRenderer, ButtonRenderer } from '../ui/ytUI.js';
+import { timelyAction, longPressData, MenuServiceItemRenderer, ShelfRenderer, TileRenderer, ButtonRenderer, showToast } from '../ui/ytUI.js';
 import { PatchSettings } from '../ui/customYTSettings.js';
 import { t } from 'i18next';
 
@@ -122,9 +122,20 @@ JSON.parse = function () {
       processShelves(r.contents.sectionListRenderer.contents);
     }
 
+    //if (r?.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents) {
+    //processShelves(r.contents.twoColumnSearchResultsRenderer.primaryContents.sectionListRenderer.contents);
+    //}
+    
+    // DEBUG .................................
     if (r?.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents) {
-    processShelves(r.contents.twoColumnSearchResultsRenderer.primaryContents.sectionListRenderer.contents);
+      const searchContents = r.contents.twoColumnSearchResultsRenderer.primaryContents.sectionListRenderer.contents;
+      if (!window.__ttToastedSearch && searchContents.length) {
+        window.__ttToastedSearch = true;
+        showToast('TT Search Debug', Object.keys(searchContents[0]).join(', '));
+      }
+      processShelves(searchContents);
     }
+    // DEBUG .................................
 
     if (r?.continuationContents?.sectionListContinuation?.contents) {
       processShelves(r.continuationContents.sectionListContinuation.contents);
@@ -301,6 +312,18 @@ JSON.stringify = function (value, replacer, space) {
 
 window.JSON.stringify = JSON.stringify;
 
+// DEBUG .................................
+const origStringify2 = JSON.stringify;
+JSON.stringify = function (value, replacer, space) {
+  if (value?.context?.client && !window.__ttToastedClient) {
+    window.__ttToastedClient = true;
+    showToast('TT Client Debug', `${value.context.client.clientName} v${value.context.client.clientVersion}`);
+  }
+  return origStringify2.call(this, value, replacer, space);
+};
+window.JSON.stringify = JSON.stringify;
+// DEBUG .................................
+
 // Patch JSON.parse to use the custom one
 window.JSON.parse = JSON.parse;
 for (const key in window._yttv) {
@@ -413,20 +436,24 @@ function hqify(items) {
 }
 
 function addLongPress(items) {
+  // DEBUG .................................
+    if (!window.__ttToastedMenu) {
+    for (const item of items) {
+      const existing = item.tileRenderer?.onLongPressCommand?.showMenuCommand?.menu?.menuRenderer?.items;
+      if (existing && existing.length) {
+        window.__ttToastedMenu = true;
+        const labels = existing.map(it => (it.menuServiceItemRenderer || it.menuNavigationItemRenderer)?.text?.runs?.[0]?.text || '?').join(' | ');
+        showToast('TT Menu Debug', `${existing.length} items: ${labels}`);
+        break;
+      }
+    }
+  }
+  // DEBUG .................................
   for (const item of items) {
     if (!item.tileRenderer) continue;
     if (item.tileRenderer.style !== 'TILE_STYLE_YTLR_DEFAULT') continue;
     if (item.tileRenderer.onLongPressCommand?.showMenuCommand?.menu?.menuRenderer?.items) {
       item.tileRenderer.onLongPressCommand.showMenuCommand.menu.menuRenderer.items.push(MenuServiceItemRenderer('Go to Channel', {
-        clickTrackingParams: null,
-        playlistEditEndpoint: {
-          customAction: {
-            action: 'GO_TO_CHANNEL',
-            parameters: { videoId: item.tileRenderer.contentId }
-          }
-        }
-      }));
-      item.tileRenderer.onLongPressCommand.showMenuCommand.menu.menuRenderer.items.push(MenuServiceItemRenderer('DEBUG: NATIVE PATH', {
         clickTrackingParams: null,
         playlistEditEndpoint: {
           customAction: {
@@ -455,15 +482,6 @@ function addLongPress(items) {
       item: copiedItem
     });
     item.tileRenderer.onLongPressCommand = data;
-    item.tileRenderer.onLongPressCommand.showMenuCommand.menu.menuRenderer.items.push(MenuServiceItemRenderer('DEBUG: FALLBACK PATH', {
-      clickTrackingParams: null,
-      playlistEditEndpoint: {
-        customAction: {
-          action: 'GO_TO_CHANNEL',
-          parameters: { videoId: item.tileRenderer.contentId }
-        }
-      }
-    }));
   }
 }
 
