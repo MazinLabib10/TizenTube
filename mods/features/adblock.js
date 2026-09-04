@@ -18,18 +18,6 @@ const origParse = JSON.parse;
 JSON.parse = function () {
   const r = origParse.apply(this, arguments);
   try {
-    // DEBUG .................................
-    if (r && typeof r === 'object' && r.contents) {
-      const shapeKey = Object.keys(r.contents).join(',');
-      if (!window.__ttSeenShapes) window.__ttSeenShapes = new Set();
-      if (!window.__ttSeenShapes.has(shapeKey)) {
-        window.__ttSeenShapes.add(shapeKey);
-        showToast('TT Shape #' + window.__ttSeenShapes.size, shapeKey.slice(0, 180));
-      }
-    }
-  } catch (e) {}
-  // DEBUG .................................
-  try {
     const adBlockEnabled = configRead('enableAdBlock');
     const signinReminderEnabled = configRead('enableSigninReminder');
 
@@ -102,7 +90,7 @@ JSON.parse = function () {
       r?.contents?.tvBrowseRenderer?.content?.tvSurfaceContentRenderer?.content
         ?.gridRenderer?.items
     ) {
-      addLongPress(r.contents.tvBrowseRenderer.content.tvSurfaceContentRenderer.content.gridRenderer.items);
+      addLongPress(r.contents.tvBrowseRenderer.content.tvSurfaceContentRenderer.content.gridRenderer.items, true);
     }
 
     if (r.endscreen && configRead('enableHideEndScreenCards')) {
@@ -134,20 +122,9 @@ JSON.parse = function () {
       processShelves(r.contents.sectionListRenderer.contents);
     }
 
-    //if (r?.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents) {
-    //processShelves(r.contents.twoColumnSearchResultsRenderer.primaryContents.sectionListRenderer.contents);
-    //}
-    
-    // DEBUG .................................
     if (r?.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents) {
-      const searchContents = r.contents.twoColumnSearchResultsRenderer.primaryContents.sectionListRenderer.contents;
-      if (!window.__ttToastedSearch && searchContents.length) {
-        window.__ttToastedSearch = true;
-        showToast('TT Search Debug', Object.keys(searchContents[0]).join(', '));
-      }
-      processShelves(searchContents);
+    processShelves(r.contents.twoColumnSearchResultsRenderer.primaryContents.sectionListRenderer.contents);
     }
-    // DEBUG .................................
 
     if (r?.continuationContents?.sectionListContinuation?.contents) {
       processShelves(r.continuationContents.sectionListContinuation.contents);
@@ -324,18 +301,6 @@ JSON.stringify = function (value, replacer, space) {
 
 window.JSON.stringify = JSON.stringify;
 
-// DEBUG .................................
-const origStringify2 = JSON.stringify;
-JSON.stringify = function (value, replacer, space) {
-  if (value?.context?.client && !window.__ttToastedClient) {
-    window.__ttToastedClient = true;
-    showToast('TT Client Debug', `${value.context.client.clientName} v${value.context.client.clientVersion}`);
-  }
-  return origStringify2.call(this, value, replacer, space);
-};
-window.JSON.stringify = JSON.stringify;
-// DEBUG .................................
-
 // Patch JSON.parse to use the custom one
 window.JSON.parse = JSON.parse;
 for (const key in window._yttv) {
@@ -344,18 +309,28 @@ for (const key in window._yttv) {
   }
 }
 
-
 function processShelves(shelves, shouldAddPreviews = true) {
+  const isLibraryPage = shelves.some(s =>
+    s.shelfRenderer?.content?.horizontalListRenderer?.items?.some(
+      i => i.tileRenderer?.style === 'TILE_STYLE_YTLR_WORMHOLE_RECTANGULAR'
+    )
+  );
+
   for (const shelve of shelves) {
     if (shelve.shelfRenderer) {
       if (!shelve.shelfRenderer.content?.horizontalListRenderer?.items) continue;
-      deArrowify(shelve.shelfRenderer.content.horizontalListRenderer.items);
-      hqify(shelve.shelfRenderer.content.horizontalListRenderer.items);
-      addLongPress(shelve.shelfRenderer.content.horizontalListRenderer.items);
+      const items = shelve.shelfRenderer.content.horizontalListRenderer.items;
+      const isWormholeShelf = items.some(i => i.tileRenderer?.style === 'TILE_STYLE_YTLR_WORMHOLE_RECTANGULAR');
+
+      deArrowify(items);
+      hqify(items);
+      addLongPress(items, isLibraryPage && !isWormholeShelf);
+      addLockupLongPress(items);
+
       if (shouldAddPreviews) {
-        addPreviews(shelve.shelfRenderer.content.horizontalListRenderer.items);
+        addPreviews(items);
       }
-      shelve.shelfRenderer.content.horizontalListRenderer.items = hideVideo(shelve.shelfRenderer.content.horizontalListRenderer.items);
+      shelve.shelfRenderer.content.horizontalListRenderer.items = hideVideo(items);
       if (!configRead('enableShorts')) {
         if (shelve.shelfRenderer.tvhtml5ShelfRendererType === 'TVHTML5_SHELF_RENDERER_TYPE_SHORTS') {
           shelves.splice(shelves.indexOf(shelve), 1);
@@ -447,15 +422,7 @@ function hqify(items) {
   }
 }
 
-function addLongPress(items) {
-  // DEBUG .................................
-  if (!window.__ttALPCount) window.__ttALPCount = 0;
-  window.__ttALPCount++;
-  if (window.__ttALPCount <= 6 && items && items.length) {
-    const keys = Object.keys(items[0]).join(', ');
-    showToast('TT ALP #' + window.__ttALPCount, `n=${items.length} keys=${keys}`);
-  }
-  // DEBUG .................................
+function addLongPress(items, includeRemoveFromHistory = false) {
   for (const item of items) {
     if (!item.tileRenderer) continue;
     if (item.tileRenderer.style !== 'TILE_STYLE_YTLR_DEFAULT') continue;
@@ -487,7 +454,7 @@ function addLongPress(items) {
       subtitle: subtitle,
       watchEndpointData: copiedItem.tileRenderer.onSelectCommand.watchEndpoint,
       item: copiedItem
-    });
+    }, includeRemoveFromHistory);
     item.tileRenderer.onLongPressCommand = data;
   }
 }
@@ -506,4 +473,25 @@ function hideVideo(items) {
     const percentWatched = (progressBar.percentDurationWatched || 0);
     return percentWatched <= configRead('hideWatchedVideosThreshold');
   });
+}
+
+
+function addLockupLongPress(items) {
+  for (const item of items) {
+    const lv = item.lockupViewModel;
+    if (!lv) continue;
+    if (lv.contentType !== 'LOCKUP_CONTENT_TYPE_VIDEO') continue;
+    const watchEndpoint = lv.rendererContext?.commandContext?.onTap?.innertubeCommand?.watchEndpoint;
+    if (!watchEndpoint) continue;
+
+    const data = lockupLongPressData({
+      videoId: lv.contentId,
+      thumbnails: lv.contentImage?.thumbnailViewModel?.image?.sources,
+      title: lv.metadata?.lockupMetadataViewModel?.title?.content,
+      subtitle: '',
+      watchEndpointData: watchEndpoint
+    });
+
+    lv.onLongPressCommand = data;
+  }
 }
