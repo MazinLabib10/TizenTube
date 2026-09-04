@@ -273,6 +273,11 @@ function removeFromHistory(parameters) {
     })
         .then(function (res) { return res.text(); })
         .then(function (html) {
+            // DEBUG — remove after diagnosing
+            showToast('TizenTube', html.includes('"logged_in":false') || html.includes('accounts.google.com/ServiceLogin')
+                ? 'Fetch is logged OUT'
+                : 'Fetch appears logged IN (len ' + html.length + ')');
+            return null; // stop here for this test
             const idIndex = html.indexOf(videoId);
             if (idIndex === -1) {
                 showToast('TizenTube', 'Video not found in history.');
