@@ -217,6 +217,9 @@ function customAction(action, parameters) {
         case 'GO_TO_CHANNEL':
             goToChannel(parameters);
             break;
+        case 'REMOVE_FROM_HISTORY':
+            removeFromHistory(parameters);
+            break;
         case 'CLEAR_QUEUE':
             window.queuedVideos.videos = [];
             showToast('TizenTube', t('toasts.videoQueueCleared'));
@@ -255,5 +258,47 @@ function goToChannel(parameters) {
         })
         .catch(function () {
             showToast('TizenTube', 'Failed to load channel.');
+        });
+}
+
+function removeFromHistory(parameters) {
+    const videoId = parameters && parameters.videoId;
+    if (!videoId) {
+        showToast('TizenTube', 'Could not determine video.');
+        return;
+    }
+
+    fetch('https://www.youtube.com/feed/history?hl=en', {
+        credentials: 'include'
+    })
+        .then(function (res) { return res.text(); })
+        .then(function (html) {
+            const idIndex = html.indexOf(videoId);
+            if (idIndex === -1) {
+                showToast('TizenTube', 'Video not found in history.');
+                return null;
+            }
+            const windowText = html.slice(idIndex, idIndex + 4000);
+            const match = windowText.match(/"feedbackToken":"([^"]+)"/);
+            if (!match) {
+                showToast('TizenTube', 'Could not find removal token.');
+                return null;
+            }
+            return fetch('https://www.youtube.com/youtubei/v1/feedback?prettyPrint=false', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    context: { client: { clientName: 'WEB', clientVersion: '2.20240101.00.00' } },
+                    feedbackTokens: [match[1]]
+                })
+            });
+        })
+        .then(function (res) {
+            if (!res) return;
+            showToast('TizenTube', res.ok ? 'Removed from watch history.' : 'Failed to remove from history.');
+        })
+        .catch(function () {
+            showToast('TizenTube', 'Failed to remove from history.');
         });
 }
