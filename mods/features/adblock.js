@@ -492,6 +492,8 @@ function addLockupLongPress(items) {
       watchEndpointData: watchEndpoint
     });
 
-    lv.onLongPressCommand = data;
+    commandContext.onLongPress = {
+      innertubeCommand: data
+    };
   }
 }
