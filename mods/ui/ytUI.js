@@ -187,7 +187,7 @@ function timelyAction(text, icon, command, triggerTimeMs, timeoutMs) {
 
 }
 
-function longPressData(data) {
+function longPressData(data, includeRemoveFromHistory) {
     const isWatchLaterItem = data.watchEndpointData && data.watchEndpointData.playlistId === 'WL';
     const watchLaterAction = isWatchLaterItem ? {
         removedVideoId: data.videoId,
@@ -197,19 +197,65 @@ function longPressData(data) {
         action: 'ACTION_ADD_VIDEO'
     };
 
+    const items = [
+        MenuNavigationItemRenderer('Play', {
+            clickTrackingParams: null,
+            watchEndpoint: data.watchEndpointData
+        }),
+        MenuServiceItemRenderer(isWatchLaterItem ? 'Remove from Watch Later' : 'Save to Watch Later', {
+            clickTrackingParams: null,
+            commandMetadata: {
+                webCommandMetadata: { sendPost: true, apiUrl: '/youtubei/v1/browse/edit_playlist' }
+            },
+            playlistEditEndpoint: { playlistId: 'WL', actions: [watchLaterAction] }
+        }),
+        MenuNavigationItemRenderer('Save to Playlist', {
+            clickTrackingParams: null,
+            addToPlaylistEndpoint: { videoId: data.videoId }
+        }),
+        MenuServiceItemRenderer('Go to Channel', {
+            clickTrackingParams: null,
+            playlistEditEndpoint: {
+                customAction: { action: 'GO_TO_CHANNEL', parameters: { videoId: data.videoId } }
+            }
+        }),
+    ];
+
+    if (includeRemoveFromHistory) {
+        items.splice(1, 0, MenuServiceItemRenderer('Remove from Watch History', {
+            clickTrackingParams: null,
+            playlistEditEndpoint: {
+                customAction: { action: 'REMOVE_FROM_HISTORY', parameters: { videoId: data.videoId } }
+            }
+        }));
+    }
+
     return {
         clickTrackingParams: null,
         showMenuCommand: {
             contentId: data.videoId,
-            thumbnail: {
-                thumbnails: data.thumbnails
-            },
-            title: {
-                simpleText: data.title
-            },
-            subtitle: {
-                simpleText: data.subtitle
-            },
+            thumbnail: { thumbnails: data.thumbnails },
+            title: { simpleText: data.title },
+            subtitle: { simpleText: data.subtitle },
+            menu: {
+                menuRenderer: {
+                    items,
+                    trackingParams: null,
+                    accessibility: { accessibilityData: { label: 'Video options' } }
+                }
+            }
+        }
+    };
+}
+
+function lockupLongPressData(data) {
+    return {
+        clickTrackingParams: null,
+        showMenuCommand: {
+            contentId: data.videoId,
+            thumbnail: { thumbnails: data.thumbnails },
+            title: { simpleText: data.title },
+            subtitle: { simpleText: data.subtitle },
             menu: {
                 menuRenderer: {
                     items: [
@@ -217,45 +263,19 @@ function longPressData(data) {
                             clickTrackingParams: null,
                             watchEndpoint: data.watchEndpointData
                         }),
-                        MenuServiceItemRenderer(isWatchLaterItem ? 'Remove from Watch Later' : 'Save to Watch Later', {
-                            clickTrackingParams: null,
-                            commandMetadata: {
-                                webCommandMetadata: {
-                                    sendPost: true,
-                                    apiUrl: '/youtubei/v1/browse/edit_playlist'
-                                }
-                            },
-                            playlistEditEndpoint: {
-                                playlistId: 'WL',
-                                actions: [watchLaterAction]
-                            }
-                        }),
-                        MenuNavigationItemRenderer('Save to Playlist', {
-                            clickTrackingParams: null,
-                            addToPlaylistEndpoint: {
-                                videoId: data.videoId
-                            }
-                        }),
                         MenuServiceItemRenderer('Go to Channel', {
                             clickTrackingParams: null,
                             playlistEditEndpoint: {
-                                customAction: {
-                                    action: 'GO_TO_CHANNEL',
-                                    parameters: { videoId: data.videoId }
-                                }
+                                customAction: { action: 'GO_TO_CHANNEL', parameters: { videoId: data.videoId } }
                             }
                         }),
                     ],
                     trackingParams: null,
-                    accessibility: {
-                        accessibilityData: {
-                            label: 'Video options'
-                        }
-                    }
+                    accessibility: { accessibilityData: { label: 'Video options' } }
                 }
             }
         }
-    }
+    };
 }
 
 function MenuServiceItemRenderer(text, serviceEndpoint) {
@@ -466,5 +486,6 @@ export {
     ShelfRenderer,
     TileRenderer,
     QrCodeRenderer,
-    ButtonRenderer
+    ButtonRenderer,
+    lockupLongPressData
 }
